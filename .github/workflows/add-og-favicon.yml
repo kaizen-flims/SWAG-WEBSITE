@@ -1,0 +1,145 @@
+name: Add OG Banner and Favicons
+
+on:
+  push:
+    paths:
+      - '.github/workflows/add-og-favicon.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-assets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate OG banner, favicons, and update index.html
+        run: |
+          pip install -q pillow numpy
+          python3 - << 'PYEOF'
+          import io, os, re, base64
+          import numpy as np
+          from PIL import Image, ImageDraw, ImageFilter
+
+          os.makedirs("assets", exist_ok=True)
+          tiny_b64 = "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"
+          tiny = Image.open(io.BytesIO(base64.b64decode(tiny_b64))).convert("L")
+          alpha_big = tiny.resize((tiny.width * 16, tiny.height * 16), Image.Resampling.NEAREST)
+
+          W, H = 1200, 630
+          y, x = np.mgrid[0:H, 0:W].astype(np.float32)
+          cx, cy = W * 0.50, H * 0.50
+          dx, dy = x - cx, y - cy
+          r = np.sqrt(dx*dx + dy*dy)
+          theta = np.arctan2(dy, dx)
+          R0, sigma = 258.0, 56.0
+          ring_base = np.exp(-0.5 * ((r - R0) / sigma) ** 2)
+          u = dx * np.cos(-0.66) + dy * np.sin(-0.66)
+          rib_phase = (u / 21.0) * 2.0 * np.pi
+          rib_wave = np.clip(0.55 + 0.45 * np.cos(rib_phase) + 0.24 * np.cos(2.0 * rib_phase - 0.7), 0.0, 1.38)
+          ang_mod = 0.68 + 0.32 * np.cos(2.0 * (theta - 0.85))
+          r_red = np.exp(-0.5 * ((r - (R0 - 10.0 + 6.0 * np.sin(rib_phase))) / (sigma * 0.92)) ** 2)
+          r_grn = np.exp(-0.5 * ((r - (R0 + 0.0 + 6.0 * np.sin(rib_phase))) / (sigma * 0.88)) ** 2)
+          r_blu = np.exp(-0.5 * ((r - (R0 + 11.0 + 6.0 * np.sin(rib_phase))) / (sigma * 0.95)) ** 2)
+          spec = np.power(np.clip(np.cos(rib_phase * 0.5), 0.0, 1.0), 5.5) * np.exp(-0.5 * ((r - R0) / (sigma * 0.62)) ** 2)
+          bg_ribs = 0.024 + 0.020 * (0.5 + 0.5 * np.cos(rib_phase)) * np.exp(-0.5 * (r / 640.0) ** 2)
+          R = bg_ribs + ring_base * rib_wave * ang_mod * (1.22 * r_red) + 0.58 * spec
+          G = bg_ribs + ring_base * rib_wave * ang_mod * (0.86 * r_grn) + 0.54 * spec
+          B = bg_ribs + ring_base * rib_wave * ang_mod * (0.60 * r_blu + 0.52 * np.exp(-0.5 * ((r - (R0 + 22.0)) / 38.0) ** 2)) + 0.62 * spec
+          rgb = np.stack([R, G, B], axis=-1)
+          rgb = np.clip(rgb / (1.0 + 0.26 * rgb), 0.0, 1.0)
+          banner = Image.fromarray((rgb * 255.0).astype(np.uint8), mode="RGB").filter(ImageFilter.GaussianBlur(radius=0.7))
+
+          target_wm_w = 520
+          target_wm_h = int(round(alpha_big.height * (target_wm_w / alpha_big.width)))
+          alpha_final = alpha_big.resize((target_wm_w, target_wm_h), Image.Resampling.LANCZOS)
+          full_alpha = Image.new("L", (W, H), 0)
+          wx, wy = (W - target_wm_w) // 2, (H - target_wm_h) // 2
+          full_alpha.paste(alpha_final, (wx, wy))
+          shadow_full = full_alpha.filter(ImageFilter.GaussianBlur(radius=28))
+          shadow_layer = Image.new("RGBA", (W, H), (0, 0, 0, 230))
+          banner_rgba = banner.convert("RGBA")
+          banner_rgba.paste(shadow_layer, (0, 6), shadow_full)
+          banner_rgba.paste(shadow_layer, (0, 0), shadow_full)
+          banner_rgba.paste(Image.new("RGBA", (target_wm_w, target_wm_h), (255, 255, 255, 255)), (wx, wy), alpha_final)
+          banner_rgba.convert("RGB").save("assets/og-banner.jpg", quality=92, optimize=True)
+
+          def make_favicon(size, rounded=True):
+              canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+              bg = Image.new("RGBA", (size, size), (10, 10, 12, 255))
+              if rounded:
+                  mask = Image.new("L", (size * 4, size * 4), 0)
+                  ImageDraw.Draw(mask).rounded_rectangle((0, 0, size * 4 - 1, size * 4 - 1), radius=int(size * 4 * 0.22), fill=255)
+                  canvas.paste(bg, (0, 0), mask.resize((size, size), Image.Resampling.LANCZOS))
+              else:
+                  canvas = bg
+              iw = int(round(size * 0.82))
+              ih = max(1, int(round(alpha_big.height * (iw / alpha_big.width))))
+              wm_mask = alpha_big.resize((iw, ih), Image.Resampling.LANCZOS)
+              canvas.paste(Image.new("RGBA", (iw, ih), (255, 255, 255, 255)), ((size - iw) // 2, (size - ih) // 2), wm_mask)
+              return canvas
+
+          make_favicon(192, True).save("assets/favicon-192x192.png", optimize=True)
+          make_favicon(180, False).save("assets/apple-touch-icon.png", optimize=True)
+          make_favicon(32, True).save("assets/favicon-32x32.png", optimize=True)
+          make_favicon(64, True).save("favicon.ico", format="ICO", sizes=[(16, 16), (32, 32), (64, 64)])
+
+          def clean_svg_str(s):
+              s = re.sub(r'viewBox="22 92 670 418"\s+width="670"\s+height="418"', 'viewBox="89 92 602 418" width="602" height="418"', s)
+              out = []
+              for line in s.splitlines():
+                  if '<path ' in line:
+                      coords = re.findall(r'([0-9]+\.[0-9]+)\s+([0-9]+\.[0-9]+)', line)
+                      if coords and min(float(c[0]) for c in coords) < 85:
+                          continue
+                  out.append(line)
+              return "\n".join(out)
+
+          if os.path.exists("assets/logo.svg"):
+              with open("assets/logo.svg", "r", encoding="utf-8") as f:
+                  svg_c = clean_svg_str(f.read())
+              with open("assets/logo.svg", "w", encoding="utf-8") as f:
+                  f.write(svg_c)
+
+          with open("index.html", "r", encoding="utf-8") as f:
+              html = clean_svg_str(f.read())
+
+          site = "ht" + "tps://swag.pages.dev"
+          og_tags = f'''  <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+            <link rel="icon" type="image/svg+xml" href="/assets/logo.svg" />
+            <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png" />
+            <link rel="icon" type="image/png" sizes="192x192" href="/assets/favicon-192x192.png" />
+            <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png" />
+            <meta property="og:type" content="website" />
+            <meta property="og:site_name" content="#SWAG" />
+            <meta property="og:url" content="{site}/" />
+            <meta property="og:title" content="#SWAG — Instant Stream. No Compromise." />
+            <meta property="og:description" content="A modern Free Streaming Service using plugins to stream, nothing is being streamed in our servers." />
+            <meta property="og:image" content="{site}/assets/og-banner.jpg" />
+            <meta property="og:image:secure_url" content="{site}/assets/og-banner.jpg" />
+            <meta property="og:image:type" content="image/jpeg" />
+            <meta property="og:image:width" content="1200" />
+            <meta property="og:image:height" content="630" />
+            <meta property="og:image:alt" content="#SWAG — Instant Stream. No Compromise." />
+            <meta name="twitter:card" content="summary_large_image" />
+            <meta name="twitter:url" content="{site}/" />
+            <meta name="twitter:title" content="#SWAG — Instant Stream. No Compromise." />
+            <meta name="twitter:description" content="A modern Free Streaming Service using plugins to stream, nothing is being streamed in our servers." />
+            <meta name="twitter:image" content="{site}/assets/og-banner.jpg" />'''
+
+          if 'property="og:image"' not in html:
+              html = html.replace('<meta name="theme-color" content="#000000" />', '<meta name="theme-color" content="#000000" />\n' + og_tags)
+          with open("index.html", "w", encoding="utf-8") as f:
+              f.write(html)
+          PYEOF
+
+      - name: Commit and push updated OG banner, favicons, and index.html
+        run: |
+          git config user.name "kaizen-flims"
+          git config user.email "kaizen-flims@users.noreply.github.com"
+          git add index.html favicon.ico assets/
+          git diff --cached --quiet || git commit -m "feat: add Open Graph landscape banner, favicons, and social meta tags"
+          git push origin HEAD:main
