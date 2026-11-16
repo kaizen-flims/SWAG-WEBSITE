@@ -1,0 +1,52 @@
+name: Restore Full SWAG Hashtag Logo
+
+on:
+  push:
+    paths:
+      - '.github/workflows/restore-full-hashtag.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  restore-logo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Restore unclipped 280-path logo.svg and update inline SVGs in index.html
+        run: |
+          git show 28dd25dc9bc378aa294b5a1cd170417c19adcb0a:swag_website.zip > /tmp/bundle.zip
+          unzip -p /tmp/bundle.zip assets/logo.svg > assets/logo.svg
+          rm -f /tmp/bundle.zip
+          python3 - << 'PYEOF'
+          import re
+
+          with open("assets/logo.svg", "r", encoding="utf-8") as f:
+              full_svg = f.read().strip()
+
+          nav_svg = full_svg.replace('<svg ', '<svg class="brand-wordmark nav-wordmark" aria-label="#SWAG" role="img" ', 1)
+          footer_svg = full_svg.replace('<svg ', '<svg class="brand-wordmark footer-wordmark" aria-label="#SWAG" role="img" ', 1)
+
+          with open("index.html", "r", encoding="utf-8") as f:
+              html = f.read()
+
+          html = re.sub(r'<svg class="brand-wordmark nav-wordmark"[^>]*>.*?</svg>', lambda _: nav_svg, html, flags=re.DOTALL)
+          html = re.sub(r'<svg class="brand-wordmark footer-wordmark"[^>]*>.*?</svg>', lambda _: footer_svg, html, flags=re.DOTALL)
+
+          with open("index.html", "w", encoding="utf-8") as f:
+              f.write(html)
+          print("Restored full 280-path #SWAG SVG in assets/logo.svg and index.html!")
+          PYEOF
+
+      - name: Commit and push restored full #SWAG logo
+        run: |
+          git config user.name "kaizen-flims"
+          git config user.email "kaizen-flims@users.noreply.github.com"
+          git add assets/logo.svg index.html
+          git diff --cached --quiet || git commit -m "fix: restore full # symbol in #SWAG SVG wordmark across site and boot animation"
+          git push origin HEAD:main
