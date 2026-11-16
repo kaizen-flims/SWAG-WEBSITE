@@ -1,0 +1,33 @@
+name: Deploy SWAG Website
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract website files from commit 28dd25d and push to main
+        run: |
+          if [ ! -f index.html ]; then
+            git show 28dd25dc9bc378aa294b5a1cd170417c19adcb0a:swag_website.zip > bundle.zip
+            unzip -o bundle.zip
+            rm -f bundle.zip
+            git config user.name "kaizen-flims"
+            git config user.email "kaizen-flims@users.noreply.github.com"
+            git add index.html README.md assets/
+            git diff --cached --quiet || git commit -m "feat: deploy official #SWAG website"
+            git push origin HEAD:main
+          fi
