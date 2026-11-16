@@ -1,0 +1,162 @@
+name: Install Liquid Glass Boot Animation
+
+on:
+  push:
+    paths:
+      - '.github/workflows/install-liquid-glass-boot.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  install-and-bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install ReactDrops liquid-glass-logo source files and bundle boot animation
+        run: |
+          curl -sL https://reactdrops.dev/r/liquid-glass-logo.json -o /tmp/liquid-glass-logo.json
+          python3 - << 'PYEOF'
+          import json, os
+
+          with open("/tmp/liquid-glass-logo.json", "r", encoding="utf-8") as f:
+              reg = json.load(f)
+
+          for item in reg.get("files", []):
+              rel_path = item["path"].lstrip("/")
+              os.makedirs(os.path.dirname(rel_path), exist_ok=True)
+              with open(rel_path, "w", encoding="utf-8") as out:
+                  out.write(item["content"])
+              print("Installed source of truth:", rel_path)
+
+          boot_tsx = """import React, { useEffect, useState } from 'react';
+          import { createRoot } from 'react-dom/client';
+          import { LiquidGlassLogo } from './components/liquid-glass-logo';
+
+          export function Example() {
+            return (
+              <LiquidGlassLogo
+                logo="assets/logo.svg"
+                ending="logo"
+                depth={2.4}
+                dispersion={1.45}
+                relief={1.2}
+                caustics={1.35}
+                highlights={1.5}
+                bloom={0.7}
+                dropStrength={2.1}
+                decay={3}
+                innerWallFocus={0.15}
+                speed={0.45}
+                loopDelay={2.4}
+                style={{ height: 480 }}
+              />
+            );
+          }
+
+          function BootOverlay() {
+            const [fading, setFading] = useState(false);
+            const [removed, setRemoved] = useState(false);
+
+            useEffect(() => {
+              const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+              const holdMs = reduced ? 900 : 4850;
+              const t1 = window.setTimeout(() => setFading(true), holdMs);
+              const t2 = window.setTimeout(() => {
+                setRemoved(true);
+                document.body.classList.remove('swag-boot-lock');
+              }, holdMs + 680);
+              return () => {
+                window.clearTimeout(t1);
+                window.clearTimeout(t2);
+              };
+            }, []);
+
+            if (removed) return null;
+
+            return (
+              <div
+                className={fading ? 'swag-boot-overlay swag-boot-fade' : 'swag-boot-overlay'}
+                aria-label="#SWAG Boot Animation"
+              >
+                <div className="swag-boot-stage">
+                  <Example />
+                </div>
+              </div>
+            );
+          }
+
+          const mountNode = document.getElementById('swag-boot-mount');
+          if (mountNode) {
+            document.body.classList.add('swag-boot-lock');
+            createRoot(mountNode).render(<BootOverlay />);
+          }
+          """
+          with open("boot-entry.tsx", "w", encoding="utf-8") as f:
+              f.write(boot_tsx)
+          PYEOF
+
+          npm install --no-save react@18 react-dom@18 esbuild
+          npx esbuild boot-entry.tsx --bundle --minify --format=iife --target=es2020 --outfile=assets/liquid-glass-boot.js
+          cp components/liquid-glass-logo.css assets/liquid-glass-logo.css
+          rm -f boot-entry.tsx package.json package-lock.json
+          rm -rf node_modules
+
+          python3 - << 'PYEOF2'
+          with open("index.html", "r", encoding="utf-8") as f:
+              html = f.read()
+
+          boot_css = """
+              body.swag-boot-lock { overflow: hidden !important; }
+              .swag-boot-overlay {
+                position: fixed;
+                inset: 0;
+                z-index: 99999;
+                background: #000000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                opacity: 1;
+                transition: opacity 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+              }
+              .swag-boot-overlay.swag-boot-fade {
+                opacity: 0;
+                pointer-events: none;
+              }
+              .swag-boot-stage {
+                width: 100%;
+                max-width: 760px;
+                height: 480px;
+              }
+          """
+          if "swag-boot-overlay" not in html:
+              html = html.replace("</style>", boot_css + "\n  </style>", 1)
+          if "assets/liquid-glass-logo.css" not in html:
+              html = html.replace("<style>", '<link rel="stylesheet" href="assets/liquid-glass-logo.css" />\n  <style>', 1)
+          if 'id="swag-boot-mount"' not in html:
+              html = html.replace("<body>", '<body>\n  <div id="swag-boot-mount"></div>', 1)
+          s_open = "<scr" + "ipt"
+          s_close = "</scr" + "ipt>"
+          boot_tag = f'  {s_open} src="assets/liquid-glass-boot.js">{s_close}\n</body>'
+          if "assets/liquid-glass-boot.js" not in html:
+              html = html.replace("</body>", boot_tag, 1)
+
+          with open("index.html", "w", encoding="utf-8") as f:
+              f.write(html)
+          PYEOF2
+
+      - name: Commit and push installed components and boot bundle
+        run: |
+          git config user.name "kaizen-flims"
+          git config user.email "kaizen-flims@users.noreply.github.com"
+          git add components/ assets/liquid-glass-boot.js assets/liquid-glass-logo.css index.html
+          git diff --cached --quiet || git commit -m "feat: integrate ReactDrops LiquidGlassLogo booting animation"
+          git push origin HEAD:main
