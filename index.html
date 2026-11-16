@@ -27,6 +27,7 @@
   <meta name="twitter:title" content="#SWAG — Instant Stream. No Compromise." />
   <meta name="twitter:description" content="A modern Free Streaming Service using plugins to stream, nothing is being streamed in our servers." />
   <meta name="twitter:image" content="https://swag.pages.dev/assets/og-banner.jpg" />
+  <link rel="stylesheet" href="assets/liquid-glass-logo.css" />
   <style>
     :root {
       --bg: #000000;
@@ -726,9 +727,33 @@
     .footer-credit a:hover {
       text-decoration: underline;
     }
+  
+    body.swag-boot-lock { overflow: hidden !important; }
+    .swag-boot-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      background: #000000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 1;
+      transition: opacity 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .swag-boot-overlay.swag-boot-fade {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .swag-boot-stage {
+      width: 100%;
+      max-width: 760px;
+      height: 480px;
+    }
+
   </style>
 </head>
 <body>
+  <div id="swag-boot-mount"></div>
 
   <!-- Top Navbar (Wordmark Logo Only, Clean Brand Header) -->
   <header class="top-nav">
@@ -2156,5 +2181,6 @@
       }
     })();
   </script>
+  <script src="assets/liquid-glass-boot.js"></script>
 </body>
 </html>
