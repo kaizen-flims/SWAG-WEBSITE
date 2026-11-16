@@ -1,0 +1,137 @@
+name: Fix Liquid Glass Boot JSX and Scroll
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-boot-and-scroll.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix-and-bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Bundle LiquidGlassLogo with automatic JSX runtime and fix CSS scroll
+        run: |
+          python3 - << 'PYEOF'
+          boot_tsx = """import { useEffect, useState } from 'react';
+          import { createRoot } from 'react-dom/client';
+          import { LiquidGlassLogo } from './components/liquid-glass-logo';
+
+          export function Example() {
+            return (
+              <LiquidGlassLogo
+                logo="assets/logo.svg"
+                ending="logo"
+                depth={2.4}
+                dispersion={1.45}
+                relief={1.2}
+                caustics={1.35}
+                highlights={1.5}
+                bloom={0.7}
+                dropStrength={2.1}
+                decay={3}
+                innerWallFocus={0.15}
+                speed={0.45}
+                loopDelay={2.4}
+                style={{ height: 480 }}
+              />
+            );
+          }
+
+          function BootOverlay() {
+            const [fading, setFading] = useState(false);
+            const [removed, setRemoved] = useState(false);
+
+            useEffect(() => {
+              const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+              const holdMs = reduced ? 1200 : 4600;
+              const t1 = window.setTimeout(() => setFading(true), holdMs);
+              const t2 = window.setTimeout(() => setRemoved(true), holdMs + 650);
+              return () => {
+                window.clearTimeout(t1);
+                window.clearTimeout(t2);
+              };
+            }, []);
+
+            if (removed) return null;
+
+            return (
+              <div
+                className={fading ? 'swag-boot-overlay swag-boot-fade' : 'swag-boot-overlay'}
+                aria-label="#SWAG Boot Animation"
+                onClick={() => setFading(true)}
+              >
+                <div className="swag-boot-stage">
+                  <Example />
+                </div>
+              </div>
+            );
+          }
+
+          function mountBoot() {
+            const mountNode = document.getElementById('swag-boot-mount');
+            if (mountNode) {
+              createRoot(mountNode).render(<BootOverlay />);
+            }
+          }
+
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', mountBoot);
+          } else {
+            mountBoot();
+          }
+          """
+          with open("boot-entry.tsx", "w", encoding="utf-8") as f:
+              f.write(boot_tsx)
+          PYEOF
+
+          npm install --no-save react@18 react-dom@18 esbuild
+          npx esbuild boot-entry.tsx --bundle --minify --jsx=automatic --format=iife --target=es2020 --outfile=assets/liquid-glass-boot.js
+          rm -f boot-entry.tsx package.json package-lock.json
+          rm -rf node_modules
+
+          python3 - << 'PYEOF2'
+          with open("index.html", "r", encoding="utf-8") as f:
+              html = f.read()
+
+          # Fix CSS scroll lock: remove overflow-x:hidden from html element and remove swag-boot-lock
+          html = html.replace("html,body{", "body{")
+          html = html.replace("overflow-x: hidden;\n    }", "}")
+          html = html.replace("body.swag-boot-lock { overflow: hidden !important; }", "")
+
+          # Add smooth fallback entrance animation if WebGL2 falls back in headless browsers
+          fallback_anim = """
+              @keyframes swagFallbackPulse {
+                0% { opacity: 0; transform: scale(0.78); filter: blur(10px); }
+                35% { opacity: 1; transform: scale(1.03); filter: blur(0px); }
+                100% { opacity: 1; transform: scale(1); filter: blur(0px); }
+              }
+              .liquid-glass-logo-fallback img {
+                animation: swagFallbackPulse 2.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+              }
+          """
+          if "swagFallbackPulse" not in html:
+              html = html.replace("</style>", fallback_anim + "\n  </style>", 1)
+
+          with open("index.html", "w", encoding="utf-8") as f:
+              f.write(html)
+          PYEOF2
+
+      - name: Commit and push updated bundle and index.html
+        run: |
+          git config user.name "kaizen-flims"
+          git config user.email "kaizen-flims@users.noreply.github.com"
+          git add assets/liquid-glass-boot.js index.html
+          git diff --cached --quiet || git commit -m "fix: bundle LiquidGlassLogo with automatic JSX runtime and enable smooth vertical scroll"
+          git push origin HEAD:main
